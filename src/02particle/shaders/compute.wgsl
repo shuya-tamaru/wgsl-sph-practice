@@ -1,0 +1,85 @@
+struct WaveState {
+  waveX: f32,
+  waveY: f32,
+  speedX: f32,
+  speedY: f32,
+}
+
+struct WaveParams {
+  waveLengthX: f32,
+  waveLengthY: f32,
+  maxHeightX: f32,
+  maxHeightY: f32,
+}
+
+struct GridCounts {
+  xCount: u32,
+  yCount: u32,
+  zCount: u32,
+}
+
+
+@group(0) @binding(0)
+var<storage, read_write> waveState: WaveState;
+
+@group(0) @binding(1)
+var<uniform> waveParams: WaveParams;
+
+@group(0) @binding(2)
+var<storage, read_write> heightField: array<f32>;
+
+@group(0) @binding(3)
+var<uniform> timeStep: f32;
+
+@group(0) @binding(4)
+var<uniform> gridCounts: GridCounts;
+
+@group(0) @binding(5)
+var<uniform> boxSize: vec3<f32>;
+
+fn accumulate_wave(
+  waveCenter: f32,
+  waveLength: f32,
+  maxHeight: f32,
+  index: u32,
+  bufferSize: u32
+) -> f32 {
+  let quarterWaveLength = 0.25 * waveLength;
+  let pos = (f32(index) + 0.5) / f32(bufferSize);
+
+  var mirroredCenter: f32;
+  let normalizedCenter = (waveCenter + boxSize.x) / (2.0 * boxSize.x);
+
+  if (normalizedCenter < 0.0) {
+    mirroredCenter = -normalizedCenter;
+  } else if (normalizedCenter > 1.0) {
+    mirroredCenter = 2.0 - normalizedCenter;
+  } else {
+    mirroredCenter = normalizedCenter;
+  }
+
+  let distance = abs(pos - mirroredCenter);
+  if distance > quarterWaveLength {
+    return 0.0;
+  }
+
+  let theta = min((distance * 3.14159265359) / quarterWaveLength, 3.14159265359);
+  return maxHeight * 0.5 * (cos(theta) + 1.0);
+}
+
+
+@compute @workgroup_size(64)
+fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+  let index = global_id.x;
+  let bufferSize = arrayLength(&heightField);
+  if (index >= bufferSize) {
+    return;
+  }
+
+  let xIndex = index % gridCounts.xCount;
+
+  var h: f32 = 0.0;
+  h += accumulate_wave(waveState.waveX, waveParams.waveLengthX, waveParams.maxHeightX, xIndex, bufferSize);
+  h += accumulate_wave(waveState.waveY, waveParams.waveLengthY, waveParams.maxHeightY, xIndex, bufferSize);
+  heightField[index] = h;
+}
