@@ -131,7 +131,11 @@ export class Particles {
     // colorBuffer（色データ）
     this.colorBuffer = device.createBuffer({
       size: this.colors.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      usage:
+        GPUBufferUsage.VERTEX |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC |
+        GPUBufferUsage.STORAGE,
       mappedAtCreation: true,
     });
     new Float32Array(this.colorBuffer.getMappedRange()).set(this.colors);

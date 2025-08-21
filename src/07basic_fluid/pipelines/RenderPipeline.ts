@@ -1,10 +1,12 @@
 import particlesShader from "../shaders/particles.wgsl";
 import { Particles } from "../Particles";
+import { Squares } from "../Squares";
 
 export class RenderPipeline {
   private device: GPUDevice;
   private format: GPUTextureFormat;
   private particles: Particles;
+  private squares: Squares;
 
   private pipeline: GPURenderPipeline;
   private bindGroup: GPUBindGroup;
@@ -13,11 +15,13 @@ export class RenderPipeline {
     device: GPUDevice,
     format: GPUTextureFormat,
     particles: Particles,
-    timeStepBuffer: GPUBuffer
+    timeStepBuffer: GPUBuffer,
+    squares: Squares
   ) {
     this.device = device;
     this.format = format;
     this.particles = particles;
+    this.squares = squares;
     this.init(timeStepBuffer);
   }
 
@@ -26,15 +30,36 @@ export class RenderPipeline {
       entries: [
         {
           binding: 0,
-          visibility: GPUShaderStage.VERTEX,
+          visibility: GPUShaderStage.VERTEX, //timeStep
           buffer: {},
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: { type: "read-only-storage" },
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: { type: "read-only-storage" },
+        },
+
+        {
+          binding: 3,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: { type: "read-only-storage" },
         },
       ],
     });
 
     this.bindGroup = this.device.createBindGroup({
       layout: bindGroupLayout,
-      entries: [{ binding: 0, resource: { buffer: timeStepBuffer } }],
+      entries: [
+        { binding: 0, resource: { buffer: timeStepBuffer } },
+        { binding: 1, resource: { buffer: this.particles.positionBuffer } },
+        { binding: 2, resource: { buffer: this.particles.colorBuffer } },
+        { binding: 3, resource: { buffer: this.particles.velocityBuffer } },
+      ],
     });
 
     const pipelineLayout = this.device.createPipelineLayout({
@@ -46,9 +71,10 @@ export class RenderPipeline {
         module: this.device.createShaderModule({ code: particlesShader }),
         entryPoint: "vs_main",
         buffers: [
-          this.particles.positionBufferLayout,
-          this.particles.colorBufferLayout,
-          this.particles.velocityBufferLayout,
+          // this.particles.positionBufferLayout,
+          // this.particles.colorBufferLayout,
+          // this.particles.velocityBufferLayout,
+          this.squares.quadVertexBufferLayout,
         ],
       },
       fragment: {
@@ -57,7 +83,7 @@ export class RenderPipeline {
         targets: [{ format: this.format }],
       },
       primitive: {
-        topology: "point-list",
+        topology: "triangle-list",
       },
       multisample: {
         count: 1,
@@ -73,11 +99,10 @@ export class RenderPipeline {
 
   draw(pass: GPURenderPassEncoder) {
     pass.setPipeline(this.pipeline);
-    pass.setVertexBuffer(0, this.particles.positionBuffer);
-    pass.setVertexBuffer(1, this.particles.colorBuffer);
-    pass.setVertexBuffer(2, this.particles.velocityBuffer);
+    pass.setVertexBuffer(0, this.squares.quadVertexBuffer);
+    pass.setIndexBuffer(this.squares.quadIndexBuffer, "uint16");
     pass.setBindGroup(0, this.bindGroup);
-    pass.draw(this.particles.particleCount, 1, 0, 0);
+    pass.drawIndexed(6, this.particles.particleCount);
   }
 
   dispose() {}

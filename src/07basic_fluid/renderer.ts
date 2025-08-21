@@ -12,6 +12,7 @@ import { Pressure } from "./sph/Pressure";
 import { PressureForce } from "./sph/PressureForce";
 import { Integrate } from "./sph/Integrate";
 import { Viscosity } from "./sph/Viscosity";
+import { Squares } from "./Squares";
 
 export class Renderer {
   canvas: HTMLCanvasElement;
@@ -37,6 +38,7 @@ export class Renderer {
   timeStep: TimeStep;
 
   particles: Particles;
+  squares: Squares;
   performanceMonitor: PerformanceMonitor;
 
   t: number;
@@ -62,7 +64,8 @@ export class Renderer {
       this.device,
       this.format,
       this.particles,
-      this.timeStep.getBuffer()
+      this.timeStep.getBuffer(),
+      this.squares
     );
 
     this.gravity = new Gravity(
@@ -116,13 +119,14 @@ export class Renderer {
 
   createAssets() {
     this.particles = new Particles(this.device);
+    this.squares = new Squares(this.device);
   }
 
   render = (timestamp: number) => {
     this.performanceMonitor.begin();
 
     // const dt = this.t ? (timestamp - this.t) / 1000 : 0.016; // 16ms = 60fps
-    const dt = 0.01;
+    const dt = 0.006;
     this.t = timestamp;
 
     this.timeStep.set(dt);
